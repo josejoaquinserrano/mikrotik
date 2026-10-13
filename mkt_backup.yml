@@ -1,6 +1,6 @@
 ---
 - name: Backup Automatizado de MikroTik RouterOS v7
-  hosts: mikrotiks
+  hosts: GNS3
   gather_facts: no
   vars:
     # Carpeta del servidor externo (don't forget to create it)
