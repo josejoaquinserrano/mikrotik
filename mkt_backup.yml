@@ -1,41 +1,29 @@
 ---
-- name: Backup Automatizado de MikroTik RouterOS v7
-  hosts: GNS3
+- name: Respaldar configuracion de routers MikroTik
+  hosts: all
   gather_facts: no
-  vars:
-    # Carpeta del servidor externo (don't forget to create it)
-    backup_dir: "./backups/mikrotik/{{ ansible_date_time.date }}"
 
   tasks:
-    - name: Obtener la fecha actual del sistema
-      setup:
-        filter: "ansible_date_time"
+    - name: Crear directorio local de respaldos si no existe
       delegate_to: localhost
-
-    - name: Asegurar que la carpeta de destino existe en el servidor Ansible
-      file:
-        path: "{{ backup_dir }}"
+      run_once: true
+      ansible.builtin.file:
+        path: "./backups/mikrotik/"
         state: directory
+        mode: '0755'
+
+    - name: Obtener exportacion de configuracion en texto plano
+      community.network.routeros_command:
+        commands:
+          - /export
+      register: router_export
+
+    - name: Guardar la configuracion en un archivo local por cada router
       delegate_to: localhost
+      ansible.builtin.copy:
+        content: "{{ router_export.stdout[0] }}"
+        dest: "./backups/{{ inventory_hostname }}_config.rsc"
 
-    - name: Generar Backup Binario y Export de texto en RouterOS v7
-      community.network.routeros_command:
-        commands:
-          - /system backup save name="backup_{{ inventory_hostname }}" dont-encrypt=yes
-          - /export file="backup_{{ inventory_hostname }}"
-
-    - name: Descargar el archivo Binario (.backup) al servidor
-      ansible.netcommon.net_get:
-        src: "backup_{{ inventory_hostname }}.backup"
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}.backup"
-
-    - name: Descargar el archivo de Configuración (.rsc) al servidor
-      ansible.netcommon.net_get:
-        src: "backup_{{ inventory_hostname }}.rsc"
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}.rsc"
-
-    - name: Limpiar y borrar los backups del almacenamiento local del MikroTik
-      community.network.routeros_command:
-        commands:
-          - /file remove "backup_{{ inventory_hostname }}.backup"
-          - /file remove "backup_{{ inventory_hostname }}.rsc"
+    - name: Mostrar mensaje de éxito
+      ansible.builtin.debug:
+        msg: "Respaldo completado para {{ inventory_hostname }} guardado en backups/{{ inventory_hostname }}_config.rsc"
