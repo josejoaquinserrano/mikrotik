@@ -1,0 +1,454 @@
+---
+# =============================================================================
+# PLAYBOOK: Configuración básica de sistema MikroTik
+# =============================================================================
+#
+# OBJETIVO
+# --------
+# Este playbook configura los servicios básicos necesarios para integrar un
+# router MikroTik en la infraestructura de gestión y monitorización:
+#
+#   - SNMPv2c
+#   - RADIUS
+#   - AAA mediante RADIUS
+#   - Usuarios locales de administración y automatización
+#   - NTP
+#   - Zona horaria
+#   - Syslog remoto
+#   - Restricción de los servicios de administración
+#
+#
+# FUENTE DE CONFIGURACIÓN
+# -----------------------
+# Los parámetros específicos de la infraestructura se obtienen de NetBox
+# mediante un Config Context.
+#
+# Config Context utilizado:
+#
+#     mikrotik_system
+#
+# El nombre del Config Context se define en la variable:
+#
+#     config_context_name
+#
+# Esto permite modificar el origen de configuración sin tener que modificar
+# las tareas que posteriormente utilizan los parámetros.
+#
+#
+# ARQUITECTURA DE LOS DATOS
+# -------------------------
+#
+#                 +----------------------+
+#                 |       NetBox         |
+#                 |                      |
+#                 | Config Context       |
+#                 | "mikrotik_system"    |
+#                 +----------+-----------+
+#                            |
+#                            | API
+#                            v
+#                 +----------------------+
+#                 |       Ansible        |
+#                 |                      |
+#                 | datos.*              |
+#                 +----------+-----------+
+#                            |
+#              +-------------+-------------+
+#              |                           |
+#              v                           v
+#       Datos de configuración       Referencias a secretos
+#       (IP, NTP, Syslog, etc.)      (Ansible Vault)
+#                                          |
+#                                          v
+#                                  Valores confidenciales
+#
+#
+# GESTIÓN DE SECRETOS
+# -------------------
+# Los secretos no se almacenan directamente en el Config Context de NetBox.
+#
+# NetBox contiene una referencia al nombre de la variable que contiene el
+# secreto en Ansible Vault.
+#
+# Ejemplo:
+#
+#     user_networking_pwd: vault_networking_pwd
+#
+# En Ansible Vault:
+#
+#     vault_networking_pwd: "********"
+#
+# El valor se obtiene dinámicamente mediante:
+#
+#     lookup('vars', datos.user_networking_pwd)
+#
+# De esta forma NetBox actúa como fuente de configuración, mientras que los
+# valores confidenciales permanecen gestionados por Ansible Vault.
+#
+#
+# VALIDACIÓN DEL CONFIG CONTEXT
+# -----------------------------
+# Antes de realizar cualquier modificación sobre el router se comprueba que
+# el Config Context contiene todos los parámetros necesarios.
+#
+# Si falta alguno de los parámetros obligatorios, el playbook finaliza antes
+# de comenzar la configuración del dispositivo.
+#
+#
+# CONECTIVIDAD CON EL ROUTER
+# --------------------------
+# La conexión con MikroTik se realiza utilizando el usuario:
+#
+#     autotrc
+#
+# La contraseña se obtiene de:
+#
+#     vault_autotrc_pwd
+#
+# La conexión se aplica mediante module_defaults a los módulos:
+#
+#     community.routeros.api
+#     community.routeros.api_modify
+#
+#
+# =============================================================================
+
+
+- name: "Configurar servicios básicos del sistema MikroTik"
+  hosts: internet
+  gather_facts: false
+  connection: local
+
+  # ---------------------------------------------------------------------------
+  # Parámetros de conexión con los dispositivos MikroTik.
+  # Las credenciales se obtienen desde Ansible Vault.
+  # ---------------------------------------------------------------------------
+
+  module_defaults:
+
+    community.routeros.api_modify:
+      hostname: "{{ ansible_host }}"
+      username: "autotrc"
+      password: "{{ vault_autotrc_pwd }}"
+
+    community.routeros.api:
+      hostname: "{{ ansible_host }}"
+      username: "autotrc"
+      password: "{{ vault_autotrc_pwd }}"
+
+  vars:
+
+    # Nombre del Config Context utilizado como fuente de configuración.
+    config_context_name: "mikrotik_system"
+
+
+  tasks:
+
+    # =========================================================================
+    # NETBOX
+    # =========================================================================
+
+    # Se consulta NetBox para obtener el Config Context que contiene los
+    # parámetros específicos de la configuración de sistema.
+    #
+    # La respuesta de la API se almacena en:
+    #
+    #     mikrotik_system_context
+    #
+    # Los datos de configuración estarán posteriormente disponibles en:
+    #
+    #     mikrotik_system_context.json.results[0].data
+
+    - name: "NetBox | Obtener Config Context de sistema"
+      ansible.builtin.uri:
+        url: "https://netbox.grupotrc.com/api/extras/config-contexts/?name={{ config_context_name }}"
+        method: GET
+        headers:
+          Authorization: "Token {{ vault_netbox_token }}"
+          Accept: "application/json"
+        validate_certs: false
+        return_content: true
+      register: mikrotik_system_context
+
+
+    # Se extrae exclusivamente el objeto "data" del Config Context.
+    #
+    # A partir de este punto, todos los parámetros obtenidos desde NetBox
+    # se pueden consultar mediante la variable:
+    #
+    #     datos
+    #
+    # Ejemplo:
+    #
+    #     datos.radius_ip
+    #     datos.logging_server
+    #     datos.primary_ntp_server
+
+    - name: "NetBox | Guardar datos del Config Context"
+      ansible.builtin.set_fact:
+        datos: "{{ mikrotik_system_context.json.results[0].data }}"
+
+
+    # Antes de configurar el dispositivo se comprueba que el Config Context
+    # contiene todos los parámetros necesarios.
+    #
+    # Los nombres de las variables relacionadas con contraseñas y secretos
+    # contienen referencias a variables gestionadas mediante Ansible Vault.
+
+    - name: "NetBox | Validar parámetros obligatorios"
+      ansible.builtin.assert:
+        that:
+          - datos.radius_ip is defined
+          - datos.radius_secret is defined
+          - datos.snmp_community is defined
+          - datos.logging_server is defined
+          - datos.primary_ntp_server is defined
+          - datos.secondary_ntp_server is defined
+          - datos.user_autotrc_pwd is defined
+          - datos.user_networking_pwd is defined
+          - datos.acl_gestion is defined
+        fail_msg: >
+          El Config Context '{{ config_context_name }}' de NetBox no contiene
+          todos los parámetros obligatorios para configurar el router MikroTik.
+
+
+    # =========================================================================
+    # SNMP
+    # =========================================================================
+
+    # Habilita SNMPv2c y establece la información básica de identificación
+    # utilizada por los sistemas de monitorización.
+
+    - name: "SNMP | Habilitar SNMPv2c"
+      community.routeros.api_modify:
+        path: snmp
+        data:
+          - enabled: yes
+            contact: networking
+            location: CPD
+            vrf: MGMT
+
+
+    # Configura la comunidad SNMP.
+    #
+    # datos.snmp_community contiene el nombre de la variable donde está
+    # almacenado el valor real de la comunidad.
+    #
+    # Ejemplo:
+    #
+    #     datos.snmp_community = vault_snmp_community
+    #
+    # lookup('vars', ...) obtiene el valor almacenado en Ansible Vault.
+
+    - name: "SNMP | Configurar comunidad SNMP"
+      community.routeros.api:
+        path: "snmp community"
+        update: >-
+          .id=*0
+          name={{ lookup('vars', datos.snmp_community) }}
+
+
+    # =========================================================================
+    # RADIUS Y AAA
+    # =========================================================================
+
+    # Configura el servidor RADIUS utilizado para la autenticación de
+    # usuarios mediante el servicio de login de MikroTik.
+    #
+    # La dirección del servidor procede directamente de NetBox.
+    # El secreto RADIUS se obtiene mediante la referencia almacenada en NetBox
+    # y se resuelve contra las variables de Ansible Vault.
+
+    - name: "RADIUS | Configurar servidor RADIUS"
+      community.routeros.api_modify:
+        path: radius
+        data:
+          - address: "{{ datos.radius_ip }}"
+            service: login
+            secret: "{{ lookup('vars', datos.radius_secret) }}"
+
+
+    # Habilita la utilización de RADIUS para la autenticación de usuarios.
+    #
+    # default-group determina el grupo utilizado por los usuarios autenticados
+    # mediante RADIUS cuando no se especifica otro grupo.
+
+    - name: "AAA | Habilitar autenticación mediante RADIUS"
+      community.routeros.api_modify:
+        path: "user aaa"
+        data:
+          - use-radius: yes
+            default-group: full
+
+
+    # =========================================================================
+    # USUARIOS LOCALES
+    # =========================================================================
+
+    # Configura el usuario local "networking".
+    #
+    # La contraseña se obtiene desde Ansible Vault utilizando como referencia
+    # el nombre de variable almacenado en el Config Context de NetBox.
+
+    - name: "Usuarios | Configurar usuario local networking"
+      community.routeros.api_modify:
+        path: "user"
+        data:
+          - group: full
+            name: networking
+            password: "{{ lookup('vars', datos.user_networking_pwd) }}"
+
+
+    # Configura el usuario utilizado por Ansible para realizar las tareas
+    # de automatización sobre el dispositivo.
+    #
+    # La contraseña también se obtiene desde Ansible Vault.
+
+    - name: "Usuarios | Configurar usuario de automatización autotrc"
+      community.routeros.api_modify:
+        path: "user"
+        data:
+          - group: full
+            name: autotrc
+            password: "{{ lookup('vars', datos.user_autotrc_pwd) }}"
+
+
+    # =========================================================================
+    # NTP
+    # =========================================================================
+
+    # Habilita el cliente NTP utilizando la VRF de gestión.
+    #
+    # El tráfico NTP se realiza por la VRF MGMT.
+
+    - name: "NTP | Habilitar cliente NTP en VRF de gestión"
+      community.routeros.api_modify:
+        path: "system ntp client"
+        data:
+          - enabled: yes
+            vrf: MGMT
+
+
+    # Configura los dos servidores NTP definidos en NetBox.
+    #
+    # api_modify recibe dos elementos independientes dentro de "data", por lo
+    # que MikroTik mantiene ambos servidores NTP configurados.
+    #
+    #     primary_ntp_server
+    #     secondary_ntp_server
+
+    - name: "NTP | Configurar servidores NTP primario y secundario"
+      community.routeros.api_modify:
+        path: "system ntp client servers"
+        data:
+          - address: "{{ datos.primary_ntp_server }}"
+          - address: "{{ datos.secondary_ntp_server }}"
+
+
+    # =========================================================================
+    # ZONA HORARIA
+    # =========================================================================
+
+    # Desactiva la detección automática de zona horaria y establece
+    # explícitamente la zona horaria utilizada por los dispositivos.
+
+    - name: "Sistema | Configurar zona horaria Europe/Madrid"
+      community.routeros.api_modify:
+        path: "system clock"
+        data:
+          - time-zone-autodetect: no
+            time-zone-name: Europe/Madrid
+
+
+    # =========================================================================
+    # SYSLOG
+    # =========================================================================
+
+    # Configura la acción de logging remoto.
+    #
+    # El servidor Syslog se obtiene del Config Context de NetBox.
+    # El tráfico se envía utilizando la VRF de gestión y el puerto UDP 514.
+
+    - name: "Syslog | Configurar servidor de logging remoto"
+      community.routeros.api_modify:
+        path: system logging action
+        data:
+          - name: Remote
+            target: remote
+            remote: "{{ datos.logging_server }}"
+            remote-port: 514
+            vrf: MGMT
+
+
+    # Define qué eventos se envían al servidor Syslog remoto.
+    #
+    # Actualmente se envían los eventos clasificados como "warning".
+
+    - name: "Syslog | Enviar eventos warning al servidor remoto"
+      community.routeros.api_modify:
+        path: system logging
+        data:
+          - topics: warning
+            action: remote
+
+
+    # =========================================================================
+    # SERVICIOS DE GESTIÓN
+    # =========================================================================
+
+    # Se restringe el acceso a los servicios de administración del dispositivo.
+    #
+    # Servicios permitidos:
+    #
+    #     SSH
+    #     API
+    #     Winbox
+    #
+    # Estos servicios:
+    #
+    #   - utilizan la VRF MGMT
+    #   - solamente aceptan conexiones desde la ACL de gestión definida
+    #     en NetBox.
+    #
+    # Servicios deshabilitados:
+    #
+    #     API-SSL
+    #     FTP
+    #     Telnet
+    #     WWW
+    #     WWW-SSL
+    #
+    # De esta forma se reducen los servicios de administración expuestos y
+    # se limita el acceso a las redes/direcciones autorizadas.
+
+    - name: "Gestión | Restringir servicios de administración"
+      community.routeros.api_modify:
+        path: ip service
+        data:
+
+          - name: ssh
+            vrf: MGMT
+            address: "{{ datos.acl_gestion }}"
+
+          - name: api
+            vrf: MGMT
+            address: "{{ datos.acl_gestion }}"
+
+          - name: winbox
+            vrf: MGMT
+            address: "{{ datos.acl_gestion }}"
+
+          - name: api-ssl
+            disabled: yes
+
+          - name: ftp
+            disabled: yes
+
+          - name: telnet
+            disabled: yes
+
+          - name: www
+            disabled: yes
+
+          - name: www-ssl
+            disabled: yes
