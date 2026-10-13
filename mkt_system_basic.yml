@@ -164,7 +164,7 @@
         url: "https://netbox.grupotrc.com/api/extras/config-contexts/?name={{ config_context_name }}"
         method: GET
         headers:
-          Authorization: "Token {{ vault_netbox_token }}"
+          Authorization: "Token {{ netboxAPI  }}"
           Accept: "application/json"
         validate_certs: false
         return_content: true
