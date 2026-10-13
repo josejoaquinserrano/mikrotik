@@ -4,7 +4,9 @@
   gather_facts: no
 
   module_defaults:
-    group/community.routeros.api:no'
+    group/community.routeros.api:
+      hostname: "{{ ansible_host }}"
+ 
 
   tasks:
     - name: Crear directorio local de respaldos si no existe
