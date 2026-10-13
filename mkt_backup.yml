@@ -4,7 +4,7 @@
   gather_facts: no
   vars:
     # Carpeta del servidor externo (don't forget to create it)
-    backup_dir: "/var/backups/mikrotik/{{ ansible_date_time.date }}"
+    backup_dir: "./backups/mikrotik/{{ ansible_date_time.date }}"
 
   tasks:
     - name: Obtener la fecha actual del sistema
