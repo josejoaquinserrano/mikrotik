@@ -129,12 +129,12 @@
     community.routeros.api_modify:
       hostname: "{{ ansible_host }}"
       username: "autotrc"
-      password: "{{ vault_autotrc_pwd }}"
+   
 
     community.routeros.api:
       hostname: "{{ ansible_host }}"
       username: "autotrc"
-      password: "{{ vault_autotrc_pwd }}"
+
 
   vars:
 
