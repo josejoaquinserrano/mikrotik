@@ -67,7 +67,7 @@
       loop: "{{ archivos_viejos.files }}"
 
     # --- 4. CONTROL DE CAMBIOS Y SUBIDA A GIT ---
-     - name: Hacer commit y push de los cambios a Git usando el token de entorno
+    - name: Hacer commit y push de los cambios a Git usando el token de entorno
       delegate_to: localhost
       run_once: true
       ansible.builtin.shell: |
