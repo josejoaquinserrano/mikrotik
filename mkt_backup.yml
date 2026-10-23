@@ -26,7 +26,7 @@
       delegate_to: localhost
       ansible.builtin.copy:
         content: "{{ router_export.stdout[0] }}"
-        dest: "./backups/{{ inventory_hostname }}_config.rsc"
+        dest: "./backups/mikrotik/{{ inventory_hostname }}_config.rsc"
 
     - name: Mostrar mensaje de éxito
       ansible.builtin.debug:
