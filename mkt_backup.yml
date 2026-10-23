@@ -1,18 +1,12 @@
 ---
 - name: Respaldar configuracion de routers MikroTik
-  hosts: all
+  hosts: GNS3
   gather_facts: no
   connection: network_cli 
   vars:
     ansible_network_os: community.network.routeros 
 
   tasks:
-    - name: Obtener la fecha y hora actual en la máquina local
-      delegate_to: localhost
-      run_once: true
-      ansible.builtin.setup:
-        filter: "ansible_date_time"
-
     - name: Crear directorio local de respaldos si no existe
       delegate_to: localhost
       run_once: true
@@ -31,9 +25,8 @@
       delegate_to: localhost
       ansible.builtin.copy:
         content: "{{ router_export.stdout }}"
-        dest: "./backups/mikrotik/{{ inventory_hostname }}_config_{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['date'] }}_{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['hour'] }}{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['minute'] }}.rsc"
+        dest: "./backups/mikrotik/{{ inventory_hostname }}_config_{{ now(fmt='%Y-%m-%d_%H%M') }}.rsc"
 
     - name: Mostrar mensaje de éxito
       ansible.builtin.debug:
-        msg: "Respaldo seguro completado para {{ inventory_hostname }} guardado en ./backups/mikrotik/{{ inventory_hostname }}_config_{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['date'] }}_{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['hour'] }}{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['minute'] }}.rsc"
-
+        msg: "Respaldo seguro completado para {{ inventory_hostname }} guardado en ./backups/mikrotik/{{ inventory_hostname }}_config_{{ now(fmt='%Y-%m-%d_%H%M') }}.rsc"
