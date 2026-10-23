@@ -1,20 +1,35 @@
 ---
-- name: Respaldar configuracion de routers MikroTik
+- name: Respaldar configuracion de routers MikroTik con Git y Retencion
   hosts: GNS3
   gather_facts: no
   connection: network_cli 
   vars:
     ansible_network_os: community.network.routeros 
+    backup_dir: "./backups/mikrotik"
+    repo_url: "https://github.com/josejoaquinserrano/backups.git"
 
   tasks:
+    # --- 1. PREPARACIÓN Y CONFIGURACIÓN LOCAL ---
+    - name: Asegurar que el directorio local es un repositorio Git
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.shell: |
+        if [ ! -d ".git" ]; then
+          git init
+          git remote add origin {{ repo_url }} || true
+        fi
+      args:
+        chdir: "./"
+
     - name: Crear directorio local de respaldos si no existe
       delegate_to: localhost
       run_once: true
       ansible.builtin.file:
-        path: "./backups/mikrotik/"
+        path: "{{ backup_dir }}"
         state: directory
         mode: '0755'
 
+    # --- 2. EXTRACCIÓN Y GUARDADO DEL RESPALDO ---
     - name: Obtener exportacion de configuracion segura (sin datos sensibles)
       community.network.routeros_command:
         commands:
@@ -25,8 +40,43 @@
       delegate_to: localhost
       ansible.builtin.copy:
         content: "{{ router_export.stdout }}"
-        dest: "./backups/mikrotik/{{ inventory_hostname }}_config_{{ now(fmt='%Y-%m-%d_%H%M') }}.rsc"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_config_{{ now(fmt='%Y-%m-%d_%H%M') }}.rsc"
 
-    - name: Mostrar mensaje de éxito
+    - name: Mostrar mensaje de éxito individual
       ansible.builtin.debug:
-        msg: "Respaldo seguro completado para {{ inventory_hostname }} guardado en ./backups/mikrotik/{{ inventory_hostname }}_config_{{ now(fmt='%Y-%m-%d_%H%M') }}.rsc"
+        msg: "Respaldo seguro guardado localmente para {{ inventory_hostname }}"
+
+    # --- 3. POLÍTICA DE RETENCIÓN (BORRAR CON >30 DÍAS) ---
+    - name: Buscar archivos de respaldo más antiguos de 30 días
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.find:
+        paths: "{{ backup_dir }}"
+        age: 30d
+        patterns: "*.rsc"
+      register: archivos_viejos
+
+    - name: Eliminar respaldos obsoletos
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ archivos_viejos.files }}"
+
+    # --- 4. CONTROL DE CAMBIOS Y SUBIDA A GIT ---
+    - name: Hacer commit y push de los cambios a Git
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.shell: |
+        git config user.name "Ansible Backup Automation"
+        git config user.email "ansible@localhost"
+        git add {{ backup_dir }}/*.rsc
+        if ! git diff --cached --quiet; then
+          git commit -m "Automatizado: Respaldos MikroTik - {{ now(fmt='%Y-%m-%d %H:%M') }}"
+          git push origin main  
+        else
+          echo "No hay cambios nuevos que subir."
+        fi
+      args:
+        chdir: "./"
