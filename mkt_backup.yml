@@ -1,13 +1,18 @@
 ---
 - name: Respaldar configuracion de routers MikroTik
-  hosts: GNS3
+  hosts: all
   gather_facts: no
   connection: network_cli 
   vars:
     ansible_network_os: community.network.routeros 
- 
 
   tasks:
+    - name: Obtener la fecha y hora actual en la máquina local
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.setup:
+        filter: "ansible_date_time"
+
     - name: Crear directorio local de respaldos si no existe
       delegate_to: localhost
       run_once: true
@@ -16,18 +21,19 @@
         state: directory
         mode: '0755'
 
-    - name: Obtener exportacion de configuracion en texto plano
+    - name: Obtener exportacion de configuracion segura (sin datos sensibles)
       community.network.routeros_command:
         commands:
-          - /export
+          - /export show-sensitive=no
       register: router_export
 
-    - name: Guardar la configuracion en un archivo local por cada router
+    - name: Guardar la configuracion con timestamp por cada router
       delegate_to: localhost
       ansible.builtin.copy:
-        content: "{{ router_export.stdout[0] }}"
-        dest: "./backups/mikrotik/{{ inventory_hostname }}_config.rsc"
+        content: "{{ router_export.stdout }}"
+        dest: "./backups/mikrotik/{{ inventory_hostname }}_config_{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['date'] }}_{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['hour'] }}{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['minute'] }}.rsc"
 
     - name: Mostrar mensaje de éxito
       ansible.builtin.debug:
-        msg: "Respaldo completado para {{ inventory_hostname }} guardado en backups/{{ inventory_hostname }}_config.rsc"
+        msg: "Respaldo seguro completado para {{ inventory_hostname }} guardado en ./backups/mikrotik/{{ inventory_hostname }}_config_{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['date'] }}_{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['hour'] }}{{ hostvars['localhost']['ansible_facts']['ansible_date_time']['minute'] }}.rsc"
+
