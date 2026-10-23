@@ -2,10 +2,9 @@
 - name: Respaldar configuracion de routers MikroTik
   hosts: GNS3
   gather_facts: no
-  connection: network_cli  # <--- FUERZA ESTO AQUÍ
-  
+  connection: network_cli 
   vars:
-    ansible_network_os: community.network.routeros # <--- Y ESTO AQUÍ
+    ansible_network_os: community.network.routeros 
  
 
   tasks:
