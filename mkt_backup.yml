@@ -76,12 +76,10 @@
         git add {{ backup_dir }}/*.rsc
         if ! git diff --cached --quiet; then
           git commit -m "Automatizado: Respaldos MikroTik - {{ now(fmt='%Y-%m-%d %H:%M') }}"
-          # Interceptamos la URL en el aire solo para el push usando el token secreto de Semaphore
-          git push https://token:$GIT_TOKEN@://github.com main
+          # Usamos la variable repo_url e inyectamos el token de forma automática
+          git push {{ repo_url | replace('https://', 'https://token:' ~ lookup('ansible.builtin.env', 'GIT_TOKEN') ~ '@') }} main
         else
           echo "No hay cambios nuevos que subir."
         fi
-      environment:
-        GIT_TOKEN: "{{ lookup('ansible.builtin.env', 'GIT_TOKEN') }}"
       args:
         chdir: "./"
