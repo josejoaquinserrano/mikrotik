@@ -115,7 +115,7 @@
 
 
 - name: "Configurar servicios básicos del sistema MikroTik"
-  hosts: mikrotik
+  hosts: all
   gather_facts: false
   connection: local
 
