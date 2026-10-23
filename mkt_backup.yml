@@ -6,17 +6,19 @@
   vars:
     ansible_network_os: community.network.routeros 
     backup_dir: "./backups/mikrotik"
-    repo_url: "https://github.com/josejoaquinserrano/backups.git"
+    repo_url: "https://josejoaquinserrano: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@github.com/josejoaquinserrano/backups.git"
 
   tasks:
     # --- 1. PREPARACIÓN Y CONFIGURACIÓN LOCAL ---
-    - name: Asegurar que el directorio local es un repositorio Git
+    - name: Asegurar que el directorio local es un repositorio Git y tiene la URL correcta
       delegate_to: localhost
       run_once: true
       ansible.builtin.shell: |
         if [ ! -d ".git" ]; then
           git init
-          git remote add origin {{ repo_url }} || true
+          git remote add origin {{ repo_url }}
+        else
+          git remote set-url origin {{ repo_url }}
         fi
       args:
         chdir: "./"
