@@ -80,7 +80,7 @@
 
         git config user.name "Ansible Backup Automation"
         git config user.email "ansible@localhost"
-        git add -A -- backups/mikrotik/*.*
+        git add -A -- backups/mikrotik/
 
         if ! git diff --cached --quiet; then
           git commit -m "Automatizado: Respaldos MikroTik - $(date '+%Y-%m-%d %H:%M')"
