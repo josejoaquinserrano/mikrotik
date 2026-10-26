@@ -91,7 +91,7 @@
           printf '%s\n' \
             '#!/bin/sh' \
             'case "$1" in' \
-            '  *Username*) echo x-access-token ;;' \
+            '  *Username*) printf "%s\n" "josejoaquinserrano" ;;' \
             '  *Password*) printf "%s\n" "$GITHUB_TOKEN" ;;' \
             'esac' > "$ASKPASS_SCRIPT"
 
