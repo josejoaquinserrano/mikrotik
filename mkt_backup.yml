@@ -66,20 +66,39 @@
         state: absent
       loop: "{{ archivos_viejos.files }}"
 
-    # --- 4. CONTROL DE CAMBIOS Y SUBIDA A GIT ---
-    - name: Hacer commit y push de los cambios a Git usando el token de entorno
+       # --- 4. CONTROL DE CAMBIOS Y SUBIDA A GIT ---
+    - name: Hacer commit y push de los cambios a Git
       delegate_to: localhost
       run_once: true
       ansible.builtin.shell: |
+        set -eu
+        export GIT_TERMINAL_PROMPT=0
+
+        echo "1. Comprobando repositorio..."
+        git rev-parse --is-inside-work-tree
+
+        echo "2. Configurando identidad..."
         git config user.name "Ansible Backup Automation"
         git config user.email "ansible@localhost"
-        git add {{ backup_dir }}/*.rsc
+
+        echo "3. Preparando cambios..."
+        git add -A -- backups/mikrotik/
+
         if ! git diff --cached --quiet; then
-          git commit -m "Automatizado: Respaldos MikroTik - {{ now(fmt='%Y-%m-%d %H:%M') }}"
-          # Usamos la variable repo_url e inyectamos el token de forma automática
-          git -c http.extraheader="Authorization: Basic {{ ('x-access-token:' ~ github_token) | b64encode }}" push origin main
+          echo "4. Creando commit..."
+          git commit -m "Automatizado: Respaldos MikroTik - $(date '+%Y-%m-%d %H:%M')"
+
+          echo "5. Ejecutando push..."
+          timeout 45s git \
+            -c http.extraheader="Authorization: Basic {{ ('x-access-token:' ~ github_token) | b64encode }}" \
+            push origin main
+
+          echo "6. Push finalizado."
         else
           echo "No hay cambios nuevos que subir."
         fi
       args:
         chdir: "./"
+      environment:
+        GIT_TERMINAL_PROMPT: "0"
+      no_log: false
