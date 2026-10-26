@@ -9,14 +9,6 @@
     repo_url: "https://github.com/josejoaquinserrano/backups.git"
 
   tasks:
-    - name: Abortar merge anterior si existe
-      delegate_to: localhost
-      run_once: true
-      ansible.builtin.command:
-        cmd: git merge --abort
-        chdir: "./"
-      failed_when: false
-      changed_when: false
     # --- 1. PREPARACIÓN Y CONFIGURACIÓN LOCAL ---
     - name: Asegurar que el directorio local es un repositorio Git y tiene la URL correcta
       delegate_to: localhost
