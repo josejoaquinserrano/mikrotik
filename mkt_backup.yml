@@ -9,7 +9,7 @@
     repo_url: "https://github.com/josejoaquinserrano/backups.git"
 
   tasks:
-   - name: Abortar merge anterior si existe
+    - name: Abortar merge anterior si existe
       delegate_to: localhost
       run_once: true
       ansible.builtin.command:
