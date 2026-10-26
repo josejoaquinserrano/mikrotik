@@ -124,6 +124,10 @@
               -c user.email="ansible@localhost" \
               merge --no-edit origin/main
 
+          echo "Subiendo backups a la rama remota main..."
+          timeout 45s git push origin HEAD:main
+          echo "Push finalizado correctamente."
+
           echo "Subiendo backups..."
           timeout 45s git push origin main
 
