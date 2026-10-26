@@ -11,6 +11,8 @@
     git_dir: "{{ base_dir }}/repository"
     repo_url: "https://github.com/josejoaquinserrano/backups.git"
     github_branch: "main"
+    backup_timestamp: "{{ now(fmt='%Y-%m-%d_%H-%M-%S') }}"
+    backup_filename: "{{ inventory_hostname }}_backup_{{ backup_timestamp }}.backup"
 
   tasks:
     - name: Crear directorios persistentes
@@ -89,24 +91,26 @@
           - "/system/backup/save name={{ inventory_hostname }}_backup"
       changed_when: true
 
-    - name: Descargar respaldo binario al almacenamiento persistente
+    - name: Descargar respaldo binario con fecha y hora
       ansible.netcommon.net_get:
         src: "{{ inventory_hostname }}_backup.backup"
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}_{{ now(fmt='%Y-%m-%d_%H-%M-%S') }}.backup"
+        dest: "{{ backup_dir }}/{{ backup_filename }}"
         protocol: scp
+      register: binary_download
 
-    - name: Comprobar archivo binario
+    - name: Comprobar archivo binario descargado
       ansible.builtin.stat:
-        path: "{{ backup_dir }}/{{ inventory_hostname }}_{{ now(fmt='%Y-%m-%d_%H-%M-%S') }}.backup"
+        path: "{{ backup_dir }}/{{ backup_filename }}"
       register: binary_file
       delegate_to: localhost
 
     - name: Validar respaldo binario
       ansible.builtin.assert:
         that:
-          - binary_file.stat.exists
-          - binary_file.stat.size | int > 0
-        fail_msg: "El respaldo binario de {{ inventory_hostname }} no existe o está vacío."
+          - binary_file.stat.exists | default(false)
+          - binary_file.stat.size | default(0) | int > 0
+        fail_msg: >-
+          El respaldo {{ backup_filename }} no existe o está vacío.
       delegate_to: localhost
     - name: Eliminar respaldo binario del MikroTik
       community.network.routeros_command:
