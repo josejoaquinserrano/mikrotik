@@ -79,7 +79,7 @@
     - name: Guardar configuración RSC sin la primera línea
       ansible.builtin.copy:
         content: "{{ router_export.stdout[0].split('\n', 1)[1] | default('') }}"
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}_config.rsc"
+        dest: "{{ git_dir }}/backups/mikrotik/{{ inventory_hostname }}_config.rsc"
         mode: "0600"
       delegate_to: localhost
 
@@ -113,26 +113,6 @@
         commands:
           - '/file/remove [find where name="{{ inventory_hostname }}_backup.backup"]'
       changed_when: true
-
-    - name: Copiar configuraciones RSC al repositorio
-      ansible.builtin.shell: |
-        set -eu
-        mkdir -p backups/mikrotik
-        found=0
-        for file in "{{ backup_dir }}"/*.rsc; do
-          if [ -f "$file" ]; then
-            cp -f "$file" backups/mikrotik/
-            found=1
-          fi
-        done
-        if [ "$found" -eq 0 ]; then
-          echo "No se encontraron archivos RSC."
-          exit 0
-        fi
-      args:
-        chdir: "{{ git_dir }}"
-      delegate_to: localhost
-      run_once: true
 
     - name: Preparar cambios RSC para Git
       ansible.builtin.shell: |
