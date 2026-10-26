@@ -31,32 +31,7 @@
         state: directory
         mode: '0755'
 
-    # --- 2. EXTRACCIÓN Y GUARDADO DEL RESPALDO ---
-    - name: Crear backup binario en MikroTik
-      community.network.routeros_command:
-        commands:
-          - /system/backup/save name=semaphore-backup
-      register: backup_binario
-
-    - name: Esperar a que se genere el backup
-      ansible.builtin.pause:
-        seconds: 3
-      delegate_to: localhost
-
-    - name: Descargar backup binario desde MikroTik mediante SCP
-      ansible.builtin.command:
-        argv:
-          - scp
-          - "-o"
-          - StrictHostKeyChecking=accept-new
-          - "{{ ansible_user }}@{{ ansible_host }}:semaphore-backup.backup"
-          - "{{ backup_dir }}/{{ inventory_hostname }}_backup_{{ now(fmt='%Y-%m-%d_%H%M') }}.backup"
-      delegate_to: localhost
-  
-    - name: Eliminar backup temporal del MikroTik
-      community.network.routeros_command:
-        commands:
-          - /file/remove [find name="semaphore-backup.backup"]
+    # --- 2. EXTRACCIÓN Y GUARDADO DEL RESPALDO --
     
     - name: Obtener exportacion de configuracion segura (sin datos sensibles)
       community.network.routeros_command:
@@ -73,6 +48,22 @@
     - name: Mostrar mensaje de éxito individual
       ansible.builtin.debug:
         msg: "Respaldo seguro guardado localmente para {{ inventory_hostname }}"
+
+     - name: Crear backup binario en MikroTik
+      community.network.routeros_command:
+        commands:
+          - "/system/backup/save name={{ inventory_hostname }}_backup"
+
+    - name: Descargar backup binario al servidor Semaphore
+      ansible.netcommon.net_get:
+        src: "{{ inventory_hostname }}_backup.backup"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_backup_{{ now(fmt='%Y-%m-%d_%H%M') }}.backup"
+        protocol: scp
+
+    - name: Eliminar backup temporal del MikroTik
+      community.network.routeros_command:
+        commands:
+          - "/file/remove [find name=\"{{ inventory_hostname }}_backup.backup\"]"
 
     # --- 3. POLÍTICA DE RETENCIÓN (BORRAR CON >30 DÍAS) ---
     - name: Buscar archivos de respaldo más antiguos de 30 días
