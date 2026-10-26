@@ -92,7 +92,7 @@
     - name: Descargar respaldo binario al almacenamiento persistente
       ansible.netcommon.net_get:
         src: "{{ inventory_hostname }}_backup.backup"
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}.backup"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_{{ now(fmt='%Y-%m-%d_%H-%M-%S') }}.backup"
         protocol: scp
 
     - name: Comprobar archivo binario
