@@ -5,7 +5,7 @@
   connection: network_cli 
   vars:
     ansible_network_os: community.network.routeros 
-    backup_dir: "./backups/mikrotik"
+    backup_dir: "/var/lib/semaphore/mikrotik-backups"
     repo_url: "https://github.com/josejoaquinserrano/backups.git"
 
   tasks:
