@@ -107,4 +107,4 @@
       environment:
         GIT_TERMINAL_PROMPT: "0"
         GITHUB_TOKEN: "{{ github_token }}"
-      no_log: true
+      no_log: false
