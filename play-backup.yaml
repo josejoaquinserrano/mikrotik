@@ -189,7 +189,7 @@
         paths: "{{ backup_dir }}"
         patterns:
           - "*.backup"
-        age: 30d
+        age: 10d
         age_stamp: mtime
         file_type: file
       register: old_binary_backups
