@@ -76,9 +76,9 @@
           - "'expected end of command' not in router_export.stdout[0]"
         fail_msg: "La exportación de {{ inventory_hostname }} está vacía o contiene un error."
 
-    - name: Guardar configuración RSC
+    - name: Guardar configuración RSC sin la primera línea
       ansible.builtin.copy:
-        content: "{{ router_export.stdout[0] }}\n"
+        content: "{{ router_export.stdout[0].split('\n', 1)[1] | default('') }}"
         dest: "{{ backup_dir }}/{{ inventory_hostname }}_config.rsc"
         mode: "0600"
       delegate_to: localhost
