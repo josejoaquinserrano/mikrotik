@@ -98,6 +98,17 @@
           chmod 700 "$ASKPASS_SCRIPT"
           export GIT_ASKPASS="$ASKPASS_SCRIPT"
 
+          echo "Sincronizando rama remota..."
+          git fetch origin main
+
+          echo "Integrando cambios remotos..."
+          git -c user.name="Ansible Backup Automation" \
+              -c user.email="ansible@localhost" \
+              merge --no-edit origin/main
+
+          echo "Subiendo backups..."
+          timeout 45s git push origin main
+
           timeout 45s git push origin main
         else
           echo "No hay cambios nuevos que subir."
