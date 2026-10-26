@@ -9,6 +9,14 @@
     repo_url: "https://github.com/josejoaquinserrano/backups.git"
 
   tasks:
+   - name: Abortar merge anterior si existe
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.command:
+        cmd: git merge --abort
+        chdir: "./"
+      failed_when: false
+      changed_when: false
     # --- 1. PREPARACIÓN Y CONFIGURACIÓN LOCAL ---
     - name: Asegurar que el directorio local es un repositorio Git y tiene la URL correcta
       delegate_to: localhost
@@ -57,7 +65,7 @@
     - name: Descargar backup binario al servidor Semaphore
       ansible.netcommon.net_get:
         src: "{{ inventory_hostname }}_backup.backup"
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}.backup"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_{{ now(fmt='%Y-%m-%d_%H%M') }}.backup"
         protocol: scp
 
     - name: Eliminar backup temporal del MikroTik
@@ -93,7 +101,7 @@
 
         git config user.name "Ansible Backup Automation"
         git config user.email "ansible@localhost"
-        git add -A -- backups/mikrotik/*.*
+        git add -A -- backups/mikrotik/*.rsc
 
         if ! git diff --cached --quiet; then
           git commit -m "Automatizado: Respaldos MikroTik - $(date '+%Y-%m-%d %H:%M')"
@@ -122,11 +130,6 @@
           echo "Subiendo backups a la rama remota main..."
           timeout 45s git push origin HEAD:main
           echo "Push finalizado correctamente."
-
-          echo "Subiendo backups..."
-          timeout 45s git push origin main
-
-          timeout 45s git push origin main
         else
           echo "No hay cambios nuevos que subir."
         fi
