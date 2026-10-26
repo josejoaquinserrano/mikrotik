@@ -32,6 +32,32 @@
         mode: '0755'
 
     # --- 2. EXTRACCIÓN Y GUARDADO DEL RESPALDO ---
+    - name: Crear backup binario en MikroTik
+      community.network.routeros_command:
+        commands:
+          - /system/backup/save name=semaphore-backup
+      register: backup_binario
+
+    - name: Esperar a que se genere el backup
+      ansible.builtin.pause:
+        seconds: 3
+      delegate_to: localhost
+
+    - name: Descargar backup binario desde MikroTik mediante SCP
+      ansible.builtin.command:
+        argv:
+          - scp
+          - "-o"
+          - StrictHostKeyChecking=accept-new
+          - "{{ ansible_user }}@{{ ansible_host }}:semaphore-backup.backup"
+          - "{{ backup_dir }}/{{ inventory_hostname }}_backup_{{ now(fmt='%Y-%m-%d_%H%M') }}.backup"
+      delegate_to: localhost
+  
+    - name: Eliminar backup temporal del MikroTik
+      community.network.routeros_command:
+        commands:
+          - /file/remove [find name="semaphore-backup.backup"]
+    
     - name: Obtener exportacion de configuracion segura (sin datos sensibles)
       community.network.routeros_command:
         commands:
@@ -70,6 +96,7 @@
         msg:
           - "Variable definida: {{ github_token is defined }}"
           - "Longitud del token: {{ github_token | default('') | length }}"
+          
 
     - name: Hacer commit y push de los cambios a Git
       delegate_to: localhost
