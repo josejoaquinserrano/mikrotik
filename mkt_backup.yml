@@ -43,7 +43,7 @@
       delegate_to: localhost
       ansible.builtin.copy:
         content: "{{ router_export.stdout }}"
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}_config_{{ now(fmt='%Y-%m-%d_%H%M') }}.rsc"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_config.rsc"
 
     - name: Mostrar mensaje de éxito individual
       ansible.builtin.debug:
@@ -57,7 +57,7 @@
     - name: Descargar backup binario al servidor Semaphore
       ansible.netcommon.net_get:
         src: "{{ inventory_hostname }}_backup.backup"
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}_backup_{{ now(fmt='%Y-%m-%d_%H%M') }}.backup"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}.backup"
         protocol: scp
 
     - name: Eliminar backup temporal del MikroTik
