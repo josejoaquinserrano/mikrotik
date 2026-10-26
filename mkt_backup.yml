@@ -82,12 +82,7 @@
         path: "{{ item.path }}"
         state: absent
       loop: "{{ archivos_viejos.files }}"
-    - name: Comprobar token GitHub
-      ansible.builtin.debug:
-        msg:
-          - "Variable definida: {{ github_token is defined }}"
-          - "Longitud del token: {{ github_token | default('') | length }}"
-          
+    
 
     - name: Hacer commit y push de los cambios a Git
       delegate_to: localhost
