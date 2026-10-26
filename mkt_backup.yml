@@ -77,7 +77,7 @@
         if ! git diff --cached --quiet; then
           git commit -m "Automatizado: Respaldos MikroTik - {{ now(fmt='%Y-%m-%d %H:%M') }}"
           # Usamos la variable repo_url e inyectamos el token de forma automática
-          git push {{ repo_url | replace('https://', 'https://token:' ~ lookup('ansible.builtin.env', 'GIT_TOKEN') ~ '@') }} main
+          git -c http.extraheader="Authorization: Basic {{ ('x-access-token:' ~ github_token) | b64encode }}" push origin main
         else
           echo "No hay cambios nuevos que subir."
         fi
