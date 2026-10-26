@@ -1,0 +1,182 @@
+---
+- name: Respaldos de routers MikroTik
+  hosts: GNS3
+  gather_facts: false
+  connection: network_cli
+
+  vars:
+    ansible_network_os: community.network.routeros
+    base_dir: "/var/tmp/ansible/network-backups"
+    backup_dir: "{{ base_dir }}/backups/mikrotik"
+    git_dir: "{{ base_dir }}/repository"
+    repo_url: "https://github.com/josejoaquinserrano/backups.git"
+    github_branch: "main"
+
+  tasks:
+    - name: Crear directorios persistentes
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0700"
+      loop:
+        - "{{ base_dir }}"
+        - "{{ backup_dir }}"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Comprobar si existe el repositorio Git
+      ansible.builtin.stat:
+        path: "{{ git_dir }}/.git"
+      register: git_repo
+      delegate_to: localhost
+      run_once: true
+
+    - name: Clonar repositorio si no existe
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ git_dir }}"
+        version: "{{ github_branch }}"
+      when: not git_repo.stat.exists
+      environment:
+        GIT_TERMINAL_PROMPT: "0"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Exportar configuración del MikroTik
+      community.network.routeros_command:
+        commands:
+          - /export
+      register: router_export
+      changed_when: false
+
+    - name: Validar exportación del router
+      ansible.builtin.assert:
+        that:
+          - router_export.stdout is defined
+          - router_export.stdout | length > 0
+          - router_export.stdout[0] | trim | length > 0
+          - "'expected end of command' not in router_export.stdout[0]"
+        fail_msg: "La exportación de {{ inventory_hostname }} está vacía o contiene un error."
+
+    - name: Guardar configuración RSC
+      ansible.builtin.copy:
+        content: "{{ router_export.stdout[0] }}\n"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_config.rsc"
+        mode: "0600"
+      delegate_to: localhost
+
+    - name: Crear respaldo binario en el MikroTik
+      community.network.routeros_command:
+        commands:
+          - "/system/backup/save name={{ inventory_hostname }}_backup"
+      changed_when: true
+
+    - name: Descargar respaldo binario al almacenamiento persistente
+      ansible.netcommon.net_get:
+        src: "{{ inventory_hostname }}_backup.backup"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}.backup"
+        protocol: scp
+
+    - name: Comprobar archivo binario
+      ansible.builtin.stat:
+        path: "{{ backup_dir }}/{{ inventory_hostname }}.backup"
+      register: binary_file
+      delegate_to: localhost
+
+    - name: Validar respaldo binario
+      ansible.builtin.assert:
+        that:
+          - binary_file.stat.exists
+          - binary_file.stat.size | int > 0
+        fail_msg: "El respaldo binario de {{ inventory_hostname }} no existe o está vacío."
+      delegate_to: localhost
+
+    - name: Copiar configuraciones RSC al repositorio
+      ansible.builtin.shell: |
+        set -eu
+        mkdir -p backups/mikrotik
+        found=0
+        for file in "{{ backup_dir }}"/*.rsc; do
+          if [ -f "$file" ]; then
+            cp -f "$file" backups/mikrotik/
+            found=1
+          fi
+        done
+        if [ "$found" -eq 0 ]; then
+          echo "No se encontraron archivos RSC."
+          exit 0
+        fi
+      args:
+        chdir: "{{ git_dir }}"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Preparar cambios RSC para Git
+      ansible.builtin.shell: |
+        set -eu
+        git add -A -- 'backups/mikrotik/*.rsc'
+        if git diff --cached --quiet; then
+          echo "Sin cambios"
+        else
+          echo "Con cambios"
+        fi
+      args:
+        chdir: "{{ git_dir }}"
+      register: staged_changes
+      changed_when: "'Con cambios' in staged_changes.stdout"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Publicar configuraciones RSC en GitHub
+      ansible.builtin.shell: |
+        set -eu
+        export GIT_TERMINAL_PROMPT=0
+
+        ASKPASS_SCRIPT="$(mktemp)"
+        trap 'rm -f "$ASKPASS_SCRIPT"' EXIT
+
+        printf '%s\n' \
+          '#!/bin/sh' \
+          'case "$1" in' \
+          '  *Username*) printf "%s\n" "josejoaquinserrano" ;;' \
+          '  *Password*) printf "%s\n" "$GITHUB_TOKEN" ;;' \
+          'esac' > "$ASKPASS_SCRIPT"
+
+        chmod 700 "$ASKPASS_SCRIPT"
+        export GIT_ASKPASS="$ASKPASS_SCRIPT"
+
+        git config user.name "Ansible Backup Automation"
+        git config user.email "ansible@localhost"
+        git commit -m "Automatizado: Configuraciones MikroTik - $(date '+%Y-%m-%d %H:%M')"
+        git fetch origin "{{ github_branch }}"
+        git merge --no-edit "origin/{{ github_branch }}"
+        git push origin "HEAD:{{ github_branch }}"
+      args:
+        chdir: "{{ git_dir }}"
+      environment:
+        GITHUB_TOKEN: "{{ github_token }}"
+        GIT_TERMINAL_PROMPT: "0"
+      when: staged_changes.changed
+      no_log: true
+      delegate_to: localhost
+      run_once: true
+
+    - name: Buscar respaldos binarios antiguos
+      ansible.builtin.find:
+        paths: "{{ backup_dir }}"
+        patterns:
+          - "*.backup"
+        age: 30d
+        age_stamp: mtime
+        file_type: file
+      register: old_binary_backups
+      delegate_to: localhost
+      run_once: true
+
+    - name: Eliminar respaldos binarios antiguos
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_binary_backups.files }}"
+      delegate_to: localhost
+      run_once: true
