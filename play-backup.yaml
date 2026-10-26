@@ -97,7 +97,7 @@
 
     - name: Comprobar archivo binario
       ansible.builtin.stat:
-        path: "{{ backup_dir }}/{{ inventory_hostname }}.backup"
+        path: "{{ backup_dir }}/{{ inventory_hostname }}_{{ now(fmt='%Y-%m-%d_%H-%M-%S') }}.backup"
       register: binary_file
       delegate_to: localhost
 
