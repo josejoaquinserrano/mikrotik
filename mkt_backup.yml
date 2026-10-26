@@ -49,7 +49,7 @@
       ansible.builtin.debug:
         msg: "Respaldo seguro guardado localmente para {{ inventory_hostname }}"
 
-     - name: Crear backup binario en MikroTik
+    - name: Crear backup binario en MikroTik
       community.network.routeros_command:
         commands:
           - "/system/backup/save name={{ inventory_hostname }}_backup"
