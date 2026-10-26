@@ -89,9 +89,23 @@
           git commit -m "Automatizado: Respaldos MikroTik - $(date '+%Y-%m-%d %H:%M')"
 
           echo "5. Ejecutando push..."
-           timeout 45s git \
-            -c http.extraheader="Authorization: Basic {{ ('josejoaquinserrano:' ~ github_token) | b64encode }}" \
-            push origin main
+          ASKPASS_SCRIPT="$(mktemp)"
+          trap 'rm -f "$ASKPASS_SCRIPT"' EXIT
+
+          cat > "$ASKPASS_SCRIPT" <<'EOF'
+          #!/bin/sh
+          case "$1" in
+            *Username*) printf '%s\n' 'x-access-token' ;;
+            *Password*) printf '%s\n' "$GITHUB_TOKEN" ;;
+          esac
+          EOF
+
+          chmod 700 "$ASKPASS_SCRIPT"
+
+          GIT_ASKPASS="$ASKPASS_SCRIPT" \
+          GITHUB_TOKEN="{{ github_token }}" \
+          GIT_TERMINAL_PROMPT=0 \
+          timeout 45s git push origin main
 
           echo "6. Push finalizado."
         else
