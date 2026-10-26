@@ -38,6 +38,14 @@
         commands:
           - /export
       register: router_export
+      
+    - name: Validar que la exportación es correcta
+      ansible.builtin.assert:
+        that:
+          - router_export.stdout is defined
+          - router_export.stdout | length > 0
+          - "'expected end of command' not in (router_export.stdout | string)"
+        fail_msg: "La exportación de {{ inventory_hostname }} ha fallado; no se guardará el RSC."
 
     - name: Guardar la configuracion con timestamp por cada router
       delegate_to: localhost
