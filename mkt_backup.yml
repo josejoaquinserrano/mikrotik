@@ -1,6 +1,6 @@
 ---
 - name: Respaldar configuracion de routers MikroTik con Git y Retencion
-  hosts: GNS3
+  hosts: all
   gather_facts: no
   connection: network_cli 
   vars:
