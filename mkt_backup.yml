@@ -21,7 +21,7 @@
           git remote set-url origin {{ repo_url }}
         fi
       args:
-        chdir: "./backups/mikrotik"
+        chdir: "./"
 
     - name: Crear directorio local de respaldos si no existe
       delegate_to: localhost
