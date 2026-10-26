@@ -11,8 +11,7 @@
     git_dir: "{{ base_dir }}/repository"
     repo_url: "https://github.com/josejoaquinserrano/backups.git"
     github_branch: "main"
-    backup_timestamp: "{{ now(fmt='%Y-%m-%d_%H-%M-%S') }}"
-    backup_filename: "{{ inventory_hostname }}_backup_{{ backup_timestamp }}.backup"
+    
 
   tasks:
     - name: Crear directorios persistentes
@@ -90,6 +89,14 @@
         commands:
           - "/system/backup/save name={{ inventory_hostname }}_backup"
       changed_when: true
+      
+    - name: Generar marca de tiempo del respaldo
+      ansible.builtin.set_fact:
+        backup_timestamp: "{{ now(fmt='%Y-%m-%d_%H-%M-%S') }}"
+
+    - name: Definir nombre del archivo binario
+      ansible.builtin.set_fact:
+        backup_filename: "{{ inventory_hostname }}_backup_{{ backup_timestamp }}.backup"
 
     - name: Descargar respaldo binario con fecha y hora
       ansible.netcommon.net_get:
