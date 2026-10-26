@@ -5,10 +5,18 @@
   connection: network_cli 
   vars:
     ansible_network_os: community.network.routeros 
-    backup_dir: "/var/lib/semaphore/mikrotik-backups"
+    backup_dir: "/var/tmp/ansible/network-backups/backups/mikrotik"
+    git_dir: "/var/tmp/ansible/network-backups/repository"
     repo_url: "https://github.com/josejoaquinserrano/backups.git"
 
   tasks:
+    - name: Verificar almacenamiento persistente
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: "0750"
     # --- 1. PREPARACIÓN Y CONFIGURACIÓN LOCAL ---
     - name: Asegurar que el directorio local es un repositorio Git y tiene la URL correcta
       delegate_to: localhost
