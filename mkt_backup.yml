@@ -36,7 +36,7 @@
     - name: Obtener exportacion de configuracion segura (sin datos sensibles)
       community.network.routeros_command:
         commands:
-          - /export show-sensitive=no
+          - /export
       register: router_export
 
     - name: Guardar la configuracion con timestamp por cada router
