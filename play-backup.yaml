@@ -32,34 +32,7 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Clonar repositorio si no existe
-      ansible.builtin.shell: |
-        set -eu
-        ASKPASS_SCRIPT="$(mktemp)"
-        trap 'rm -f "$ASKPASS_SCRIPT"' EXIT
-
-        printf '%s\n' \
-        '#!/bin/sh' \
-        'case "$1" in' \
-        '  *Username*) printf "%s\n" "josejoaquinserrano" ;;' \
-        '  *Password*) printf "%s\n" "$GITHUB_TOKEN" ;;' \
-        'esac' > "$ASKPASS_SCRIPT"
-
-        chmod 700 "$ASKPASS_SCRIPT"
-        export GIT_ASKPASS="$ASKPASS_SCRIPT"
-        export GIT_TERMINAL_PROMPT=0
-
-        git clone --branch "{{ github_branch }}" \
-          "{{ repo_url }}" "{{ git_dir }}"
-      args:
-        chdir: "{{ base_dir }}"
-      environment:
-        GITHUB_TOKEN: "{{ github_token }}"
-        GIT_TERMINAL_PROMPT: "0"
-      when: not git_repo.stat.exists
-      no_log: true
-      delegate_to: localhost
-      run_once: true
+    
 
     - name: Exportar configuración del MikroTik
       community.network.routeros_command:
@@ -141,39 +114,6 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Publicar configuraciones RSC en GitHub
-      ansible.builtin.shell: |
-        set -eu
-        export GIT_TERMINAL_PROMPT=0
-
-        ASKPASS_SCRIPT="$(mktemp)"
-        trap 'rm -f "$ASKPASS_SCRIPT"' EXIT
-
-        printf '%s\n' \
-          '#!/bin/sh' \
-          'case "$1" in' \
-          '  *Username*) printf "%s\n" "josejoaquinserrano" ;;' \
-          '  *Password*) printf "%s\n" "$GITHUB_TOKEN" ;;' \
-          'esac' > "$ASKPASS_SCRIPT"
-
-        chmod 700 "$ASKPASS_SCRIPT"
-        export GIT_ASKPASS="$ASKPASS_SCRIPT"
-
-        git config user.name "Ansible Backup Automation"
-        git config user.email "ansible@localhost"
-        git commit -m "Automatizado: Configuraciones MikroTik - $(date '+%Y-%m-%d %H:%M')"
-        git fetch origin "{{ github_branch }}"
-        git merge --no-edit "origin/{{ github_branch }}"
-        git push origin "HEAD:{{ github_branch }}"
-      args:
-        chdir: "{{ git_dir }}"
-      environment:
-        GITHUB_TOKEN: "{{ github_token }}"
-        GIT_TERMINAL_PROMPT: "0"
-      when: staged_changes.changed
-      no_log: true
-      delegate_to: localhost
-      run_once: true
 
     - name: Buscar respaldos binarios antiguos
       ansible.builtin.find:
