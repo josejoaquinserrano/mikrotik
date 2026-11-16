@@ -1,4 +1,3 @@
-```yaml
 ---
 - name: Eliminar circuito FTTH
   hosts: ftth
@@ -154,4 +153,3 @@
       community.routeros.api:
         path: interface vlan
         remove: "{{ circuito_s2_vlan[0]['.id'] }}"
-```
