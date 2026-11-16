@@ -45,7 +45,7 @@
           - "'expected end of command' not in router_export.stdout[0]"
         fail_msg: "La exportación de {{ inventory_hostname }} está vacía o contiene un error."
 
-     - name: Generar marca de tiempo del respaldo
+    - name: Generar marca de tiempo del respaldo
       ansible.builtin.set_fact:
         backup_timestamp: "{{ now(fmt='%Y-%m-%d_%H-%M-%S') }}"
 
