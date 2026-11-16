@@ -1,73 +1,53 @@
----
-- name: Configurar circuito FTTH
-  hosts: all
-  gather_facts: false
-  connection: local
-  module_defaults:
+- name: Crear VLAN de primer nivel
+  community.routeros.api_modify:
+    path: interface vlan
+    data:
+      - interface: "Neba_s1-vlan-805"
+        name: "Neba_s2-vlan-{{ s2_vlan }}"
+        vlan-id: "{{ s2_vlan }}"
 
-    community.routeros.api_modify:
-      hostname: "{{ ansible_host }}"
-      username: "autotrc"
-      password: "{{ autotrc_pwd }}"
-   
+- name: Crear VLAN del circuito
+  community.routeros.api_modify:
+    path: interface vlan
+    data:
+      - comment: "Circuito-{{ circuito }} {{ comment }}"
+        interface: "Neba_s2-vlan-{{ s2_vlan }}"
+        name: "Circ{{ circuito }}-{{ c_vlan }}"
+        vlan-id: "{{ c_vlan }}"
 
-    community.routeros.api:
-      hostname: "{{ ansible_host }}"
-      username: "autotrc"
-      password: "{{ autotrc_pwd }}"
+- name: Crear bridge
+  community.routeros.api_modify:
+    path: interface bridge
+    data:
+      - name: "Circ{{ circuito }}-bridge"
+        protocol-mode: "none"
 
+- name: Asignar circuito como bridge port
+  community.routeros.api_modify:
+    path: interface bridge port
+    data:
+      - bridge: "Circ{{ circuito }}-bridge"
+        frame-types: "admit-only-vlan-tagged"
+        interface: "Circ{{ circuito }}-{{ c_vlan }}"
 
-  tasks:
-    - name: Crear VLAN de primer nivel
-      community.routeros.api_modify:
-        path: interface vlan
-        data:
-          - interface: "Neba_s1-vlan-805"
-            name: "Neba_s2-vlan-{{ s2_vlan }}"
-            vlan-id: "{{ s2_vlan }}"
+- name: Crear servidor PPPoE
+  community.routeros.api_modify:
+    path: interface pppoe-server server
+    data:
+      - authentication: "pap,chap"
+        default-profile: "default-encryption"
+        disabled: false
+        interface: "Circ{{ circuito }}-bridge"
+        service-name: "ftth_{{ circuito }}@grupalia"
+        pado-delay: "{{ (inventory_hostname == 'RT-WAN-ITX-02') | ternary(500, omit) }}"
 
-    - name: Crear VLAN del circuito
-      community.routeros.api_modify:
-        path: interface vlan
-        data:
-          - comment: "Circuito-{{ circuito }} {{ comment }}"
-            interface: "Neba_s2-vlan-{{ s2_vlan }}"
-            name: "Circ{{ circuito }}-{{ c_vlan }}"
-            vlan-id: "{{ c_vlan }}"
-
-    - name: Crear bridge
-      community.routeros.api_modify:
-        path: interface bridge
-        data:
-          - name: "Circ{{ circuito }}-bridge"
-            protocol-mode: "none"
-
-    - name: Asignar circuito como bridge port
-      community.routeros.api_modify:
-        path: interface bridge port
-        data:
-          - bridge: "Circ{{ circuito }}-bridge"
-            frame-types: "admit-only-vlan-tagged"
-            interface: "Circ{{ circuito }}-{{ c_vlan }}"
-
-    - name: Crear servidor PPPoE
-      community.routeros.api_modify:
-        path: interface pppoe-server server
-        data:
-          - authentication: "pap,chap"
-            default-profile: "default-encryption"
-            disabled: false
-            interface: "Circ{{ circuito }}-bridge"
-            service-name: "ftth_{{ circuito }}@grupalia"
-            pado-delay: "{{ (inventory_hostname == 'RT-WAN-ITX-02') | ternary(500, omit) }}"
-
-    - name: Crear secreto PPPoE
-      community.routeros.api_modify:
-        path: ppp secret
-        data:
-          - name: "ftth_{{ circuito }}@grupalia"
-            profile: "profile1-ftth"
-            remote-address: "{{ ip }}"
-            service: "pppoe"
-            password: "{{ vault_pppoe_pwd }}"
-            routes: "{{ ruta if (ruta is defined and ruta | length > 0) else omit }}"
+- name: Crear secreto PPPoE
+  community.routeros.api_modify:
+    path: ppp secret
+    data:
+      - name: "ftth_{{ circuito }}@grupalia"
+        profile: "profile1-ftth"
+        remote-address: "{{ ip }}"
+        service: "pppoe"
+        password: "{{ vault_pppoe_pwd }}"
+        routes: "{{ ruta if (ruta is defined and ruta | length > 0) else omit }}"
