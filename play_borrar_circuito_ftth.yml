@@ -1,6 +1,6 @@
 ---
 - name: Eliminar circuito FTTH
-  hosts: ftth
+  hosts: all
   gather_facts: false
   connection: local
   module_defaults:
