@@ -21,6 +21,7 @@
             s2_vlan: "{{ item.s2_vlan }}"
             c_vlan: "{{ item.c_vlan }}"
             ip: "{{ item.ip }}"
+            ruta: "{{ item.ruta }}"
       loop: "{{ datos_csv.list }}"
       loop_control:
         label: "Procesando {{ item.circuito }}-{{ item.comment }}"
