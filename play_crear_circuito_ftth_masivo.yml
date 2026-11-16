@@ -7,7 +7,7 @@
   tasks:
     - name: Leer CSV desde el repositorio clonado
       community.general.read_csv:
-        path: "csv/{{ ruta_csv }}"
+        path: "csv/{{ fichero_csv }}"
       register: datos_csv
       delegate_to: localhost
 
