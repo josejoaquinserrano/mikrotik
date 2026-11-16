@@ -1,11 +1,25 @@
-- name: Crear VLAN de primer nivel
+  - name: Crear VLAN de primer nivel
   community.routeros.api_modify:
     path: interface vlan
     data:
       - interface: "Neba_s1-vlan-805"
         name: "Neba_s2-vlan-{{ s2_vlan }}"
         vlan-id: "{{ s2_vlan }}"
-
+        
+- name: Consultar VLAN del circuito
+  community.routeros.api_info:
+    path: interface vlan
+  register: vlans        
+        
+- name: Comprobar si existe la VLAN
+  ansible.builtin.set_fact:
+    vlan_existente: >-
+      {{
+        vlans.result
+        | selectattr('name', 'equalto', 'Circ' ~ circuito ~ '-' ~ c_vlan | string)
+        | list
+      }}
+      
 - name: Crear VLAN del circuito
   community.routeros.api_modify:
     path: interface vlan
@@ -14,6 +28,7 @@
         interface: "Neba_s2-vlan-{{ s2_vlan }}"
         name: "Circ{{ circuito }}-{{ c_vlan }}"
         vlan-id: "{{ c_vlan }}"
+  when: vlan_existente | length == 0
 
 - name: Crear bridge
   community.routeros.api_modify:
