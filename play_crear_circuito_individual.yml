@@ -1,27 +1,23 @@
 ---
-- name: Provisión individual de circuito FTTH
+- name: Configurar circuito FTTH
   hosts: all
-  connection: local
   gather_facts: false
+  connection: local
+  module_defaults:
+
+    community.routeros.api_modify:
+      hostname: "{{ ansible_host }}"
+      username: "autotrc"
+      password: "{{ autotrc_pwd }}"
+   
+
+    community.routeros.api:
+      hostname: "{{ ansible_host }}"
+      username: "autotrc"
+      password: "{{ autotrc_pwd }}"
 
   tasks:
-    - name: Leer CSV desde el repositorio clonado
-      community.general.read_csv:
-        path: "csv/{{ ruta_csv }}"
-      register: datos_csv
-      delegate_to: localhost
-
-    - name: Ejecutar las tareas de configuración por cada circuito
+    - name: Ejecutar las tareas de configuración del circuito
       ansible.builtin.include_tasks:
         file: play_crear_circuito_ftth.yml
-        apply:
-          vars:
-            circuito: "{{ item.circuito }}"
-            comment: "{{ item.comment }}"
-            s2_vlan: "{{ item.s2_vlan }}"
-            c_vlan: "{{ item.c_vlan }}"
-            ip: "{{ item.ip }}"
-            ruta: "{{ item.ruta }}"
-      loop: "{{ datos_csv.list }}"
-      loop_control:
-        label: "Procesando {{ item.circuito }}-{{ item.comment }}"
+        
