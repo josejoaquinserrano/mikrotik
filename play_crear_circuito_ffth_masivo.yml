@@ -1,6 +1,7 @@
 ---
 - name: Provisión masiva de circuitos FTTH desde CSV
   hosts: all
+  connection: local
   gather_facts: false
 
   tasks:
