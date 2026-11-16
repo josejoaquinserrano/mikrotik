@@ -19,6 +19,14 @@
         | selectattr('name', 'equalto', 'Circ' ~ circuito ~ '-' ~ (c_vlan | string))
         | list
       }}
+- name: Mostrar VLAN configuradas en la interfaz S2
+  ansible.builtin.debug:
+    msg: >-
+      {{
+        vlans.result
+        | selectattr('interface', 'equalto', 'Neba_s2-vlan-' ~ (s2_vlan | string))
+        | list
+      }}
 
 - name: Crear VLAN del circuito
   community.routeros.api_modify:
