@@ -9,6 +9,11 @@
       hostname: "{{ ansible_host }}"
       username: "autotrc"
       password: "{{ autotrc_pwd }}"
+      
+    community.routeros.api_info:
+      hostname: "{{ ansible_host }}"
+      username: "autotrc"
+      password: "{{ autotrc_pwd }}"
    
 
     community.routeros.api:
