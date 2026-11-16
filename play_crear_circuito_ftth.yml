@@ -11,23 +11,6 @@
     path: interface vlan
   register: vlans
 
-- name: Comprobar si existe la VLAN
-  ansible.builtin.set_fact:
-    vlan_existente: >-
-      {{
-        vlans.result
-        | selectattr('name', 'equalto', 'Circ' ~ circuito ~ '-' ~ (c_vlan | string))
-        | list
-      }}
-- name: Mostrar VLAN configuradas en la interfaz S2
-  ansible.builtin.debug:
-    msg: >-
-      {{
-        vlans.result
-        | selectattr('interface', 'equalto', 'Neba_s2-vlan-' ~ (s2_vlan | string))
-        | list
-      }}
-
 - name: Crear VLAN del circuito
   community.routeros.api_modify:
     path: interface vlan
@@ -36,7 +19,6 @@
         interface: "Neba_s2-vlan-{{ s2_vlan }}"
         name: "Circ{{ circuito }}-{{ c_vlan }}"
         vlan-id: "{{ c_vlan }}"
-  when: vlan_existente | length == 0
 
 - name: Crear bridge
   community.routeros.api_modify:
