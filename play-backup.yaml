@@ -25,12 +25,7 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Comprobar si existe el repositorio Git
-      ansible.builtin.stat:
-        path: "{{ git_dir }}/.git"
-      register: git_repo
-      delegate_to: localhost
-      run_once: true
+   
 
     
 
@@ -50,10 +45,14 @@
           - "'expected end of command' not in router_export.stdout[0]"
         fail_msg: "La exportación de {{ inventory_hostname }} está vacía o contiene un error."
 
+     - name: Generar marca de tiempo del respaldo
+      ansible.builtin.set_fact:
+        backup_timestamp: "{{ now(fmt='%Y-%m-%d_%H-%M-%S') }}"
+
     - name: Guardar configuración RSC sin la primera línea
       ansible.builtin.copy:
         content: "{{ router_export.stdout[0].split('\n', 1)[1] | default('') }}"
-        dest: "{{ git_dir }}/backups/mikrotik/{{ inventory_hostname }}_config.rsc"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}_backup_{{ backup_timestamp }}.rsc"
         mode: "0600"
       delegate_to: localhost
 
@@ -63,9 +62,7 @@
           - "/system/backup/save name={{ inventory_hostname }}_backup"
       changed_when: true
       
-    - name: Generar marca de tiempo del respaldo
-      ansible.builtin.set_fact:
-        backup_timestamp: "{{ now(fmt='%Y-%m-%d_%H-%M-%S') }}"
+   
 
     - name: Definir nombre del archivo binario
       ansible.builtin.set_fact:
@@ -98,22 +95,28 @@
           - '/file/remove [find where name="{{ inventory_hostname }}_backup.backup"]'
       changed_when: true
 
-    - name: Preparar cambios RSC para Git
-      ansible.builtin.shell: |
-        set -eu
-        git add -A -- 'backups/mikrotik/*.rsc'
-        if git diff --cached --quiet; then
-          echo "Sin cambios"
-        else
-          echo "Con cambios"
-        fi
-      args:
-        chdir: "{{ git_dir }}"
-      register: staged_changes
-      changed_when: "'Con cambios' in staged_changes.stdout"
+    - name: Buscar respaldos binarios antiguos
+      ansible.builtin.find:
+        paths: "{{ backup_dir }}"
+        patterns:
+          - "*.rsc"
+        age: 10d
+        age_stamp: mtime
+        file_type: file
+      register: old_rsc_backups
       delegate_to: localhost
       run_once: true
 
+    - name: Eliminar respaldos binarios antiguos
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_rsc_backups.files }}"
+      delegate_to: localhost
+      run_once: true
+  
+
+    
 
     - name: Buscar respaldos binarios antiguos
       ansible.builtin.find:
