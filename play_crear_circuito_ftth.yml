@@ -6,11 +6,6 @@
         name: "Neba_s2-vlan-{{ s2_vlan }}"
         vlan-id: "{{ s2_vlan }}"
 
-- name: Consultar VLAN del circuito
-  community.routeros.api_info:
-    path: interface vlan
-  register: vlans
-
 - name: Crear VLAN del circuito
   community.routeros.api_modify:
     path: interface vlan
