@@ -154,7 +154,3 @@
         path: interface vlan
         remove: "{{ circuito_vlan[0]['.id'] }}"
 
-    - name: Eliminar VLAN de segundo nivel
-      community.routeros.api:
-        path: interface vlan
-        remove: "{{ circuito_s2_vlan[0]['.id'] }}"
