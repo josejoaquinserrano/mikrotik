@@ -1,0 +1,145 @@
+```yaml
+---
+- name: Eliminar circuito FTTH
+  hosts: ftth
+  gather_facts: false
+  connection: local
+
+  tasks:
+    # Consultar configuración actual
+    - name: Obtener secretos PPPoE
+      community.routeros.api_info:
+        path: ppp secret
+      register: ppp_secrets
+
+    - name: Obtener servidores PPPoE
+      community.routeros.api_info:
+        path: interface pppoe-server server
+      register: pppoe_servers
+
+    - name: Obtener bridge ports
+      community.routeros.api_info:
+        path: interface bridge port
+      register: bridge_ports
+
+    - name: Obtener interfaces VLAN
+      community.routeros.api_info:
+        path: interface vlan
+      register: vlans
+
+    # Identificar elementos del circuito
+    - name: Identificar secreto PPPoE
+      ansible.builtin.set_fact:
+        circuito_secret: >-
+          {{
+            ppp_secrets.result
+            | selectattr('name', 'equalto', 'ftth_' ~ circuito ~ '@grupalia')
+            | list
+          }}
+
+    - name: Identificar servidor PPPoE
+      ansible.builtin.set_fact:
+        circuito_server: >-
+          {{
+            pppoe_servers.result
+            | selectattr('service-name', 'equalto', 'ftth_' ~ circuito ~ '@grupalia')
+            | list
+          }}
+
+    - name: Comprobar que existe el servidor PPPoE
+      ansible.builtin.assert:
+        that:
+          - circuito_server | length == 1
+        fail_msg: "No se encuentra un único servidor PPPoE para {{ circuito }}"
+
+    - name: Obtener nombre del bridge
+      ansible.builtin.set_fact:
+        circuito_bridge: "{{ circuito_server[0].interface }}"
+
+    - name: Identificar bridge port
+      ansible.builtin.set_fact:
+        circuito_bridge_port: >-
+          {{
+            bridge_ports.result
+            | selectattr('bridge', 'equalto', circuito_bridge)
+            | list
+          }}
+
+    - name: Comprobar bridge port
+      ansible.builtin.assert:
+        that:
+          - circuito_bridge_port | length == 1
+        fail_msg: "No se encuentra un único bridge port para {{ circuito_bridge }}"
+
+    - name: Identificar VLAN del circuito
+      ansible.builtin.set_fact:
+        circuito_vlan: >-
+          {{
+            vlans.result
+            | selectattr('name', 'equalto', circuito_bridge_port[0].interface)
+            | list
+          }}
+
+    - name: Comprobar VLAN del circuito
+      ansible.builtin.assert:
+        that:
+          - circuito_vlan | length == 1
+        fail_msg: "No se encuentra la VLAN del circuito {{ circuito }}"
+
+    - name: Identificar VLAN de segundo nivel
+      ansible.builtin.set_fact:
+        circuito_s2_vlan: >-
+          {{
+            vlans.result
+            | selectattr('name', 'equalto', circuito_vlan[0].interface)
+            | list
+          }}
+
+    - name: Comprobar VLAN de segundo nivel
+      ansible.builtin.assert:
+        that:
+          - circuito_s2_vlan | length == 1
+          - circuito_s2_vlan[0].name is match('^Neba_s2-vlan-')
+        fail_msg: "No se puede identificar de forma segura la VLAN S2"
+
+    # Mostrar elementos que se van a eliminar
+    - name: Mostrar elementos identificados
+      ansible.builtin.debug:
+        msg:
+          - "Circuito: {{ circuito }}"
+          - "Bridge: {{ circuito_bridge }}"
+          - "VLAN circuito: {{ circuito_vlan[0].name }}"
+          - "VLAN S2: {{ circuito_s2_vlan[0].name }}"
+
+    # Eliminar configuración
+    - name: Eliminar secreto PPPoE
+      community.routeros.api:
+        path: ppp secret
+        remove: "{{ circuito_secret[0]['.id'] }}"
+      when: circuito_secret | length == 1
+
+    - name: Eliminar servidor PPPoE
+      community.routeros.api:
+        path: interface pppoe-server server
+        remove: "{{ circuito_server[0]['.id'] }}"
+
+    - name: Eliminar bridge port
+      community.routeros.api:
+        path: interface bridge port
+        remove: "{{ circuito_bridge_port[0]['.id'] }}"
+
+    - name: Eliminar bridge
+      community.routeros.api:
+        path: interface bridge
+        remove: "{{ circuito_bridge }}"
+
+    - name: Eliminar VLAN del circuito
+      community.routeros.api:
+        path: interface vlan
+        remove: "{{ circuito_vlan[0]['.id'] }}"
+
+    - name: Eliminar VLAN de segundo nivel
+      community.routeros.api:
+        path: interface vlan
+        remove: "{{ circuito_s2_vlan[0]['.id'] }}"
+```
