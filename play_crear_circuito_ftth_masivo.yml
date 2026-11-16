@@ -4,6 +4,20 @@
   connection: local
   gather_facts: false
 
+  module_defaults:
+
+    community.routeros.api_modify:
+      hostname: "{{ ansible_host }}"
+      username: "autotrc"
+      password: "{{ autotrc_pwd }}"
+   
+
+    community.routeros.api:
+      hostname: "{{ ansible_host }}"
+      username: "autotrc"
+      password: "{{ autotrc_pwd }}"
+
+
   tasks:
     - name: Leer CSV desde el repositorio clonado
       community.general.read_csv:
