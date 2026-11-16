@@ -102,22 +102,6 @@
           - circuito_vlan | length == 1
         fail_msg: "No se encuentra la VLAN del circuito {{ circuito }}"
 
-    - name: Identificar VLAN de segundo nivel
-      ansible.builtin.set_fact:
-        circuito_s2_vlan: >-
-          {{
-            vlans.result
-            | selectattr('name', 'equalto', circuito_vlan[0].interface)
-            | list
-          }}
-
-    - name: Comprobar VLAN de segundo nivel
-      ansible.builtin.assert:
-        that:
-          - circuito_s2_vlan | length == 1
-          - circuito_s2_vlan[0].name is match('^Neba_s2-vlan-')
-        fail_msg: "No se puede identificar de forma segura la VLAN S2"
-
     # Mostrar elementos que se van a eliminar
     - name: Mostrar elementos identificados
       ansible.builtin.debug:
@@ -125,7 +109,7 @@
           - "Circuito: {{ circuito }}"
           - "Bridge: {{ circuito_bridge }}"
           - "VLAN circuito: {{ circuito_vlan[0].name }}"
-          - "VLAN S2: {{ circuito_s2_vlan[0].name }}"
+         
 
     # Eliminar configuración
     - name: Eliminar secreto PPPoE
