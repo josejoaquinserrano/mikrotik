@@ -1,4 +1,4 @@
-  - name: Crear VLAN de primer nivel
+- name: Crear VLAN de primer nivel
     community.routeros.api_modify:
       path: interface vlan
       data:
