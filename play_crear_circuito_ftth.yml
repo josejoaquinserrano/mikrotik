@@ -3,6 +3,19 @@
   hosts: all
   gather_facts: false
   connection: local
+  module_defaults:
+
+    community.routeros.api_modify:
+      hostname: "{{ ansible_host }}"
+      username: "autotrc"
+      password: "{{ autotrc_pwd }}"
+   
+
+    community.routeros.api:
+      hostname: "{{ ansible_host }}"
+      username: "autotrc"
+      password: "{{ autotrc_pwd }}"
+
 
   tasks:
     - name: Crear VLAN de primer nivel
